@@ -18,10 +18,12 @@ from omni.isaac.lab.terrains import TerrainImporterCfg
 from omni.isaac.lab.utils import configclass
 from omni.isaac.lab.utils.math import subtract_frame_transforms
 
+from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
+
 ##
 # Pre-defined configs
 ##
-from source.standalone.workflows.Mohan.robots.quadcopter import CRAZYFLIE_CFG  # isort: skip
+from omni.isaac.lab_assets import CRAZYFLIE_CFG  # isort: skip
 from omni.isaac.lab.markers import CUBOID_MARKER_CFG  # isort: skip
 
 
@@ -47,6 +49,14 @@ class QuadcopterEnvWindow(BaseEnvWindow):
 
 @configclass
 class QuadcopterEnvCfg(DirectRLEnvCfg):
+    # env
+    episode_length_s = 10.0
+    decimation = 2
+    num_actions = 4
+    num_observations = 12
+    num_states = 0
+    debug_vis = True
+
     ui_window_class_type = QuadcopterEnvWindow
 
     # simulation
@@ -82,14 +92,6 @@ class QuadcopterEnvCfg(DirectRLEnvCfg):
     robot: ArticulationCfg = CRAZYFLIE_CFG.replace(prim_path="/World/envs/env_.*/Robot")
     thrust_to_weight = 1.9
     moment_scale = 0.01
-
-    # env
-    episode_length_s = 10.0
-    decimation = 2
-    num_actions = 4
-    num_observations = 12
-    num_states = 0
-    debug_vis = True
 
     # reward scales
     lin_vel_reward_scale = -0.05
@@ -141,6 +143,25 @@ class QuadcopterEnv(DirectRLEnv):
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
+
+        # Room
+        room_cfg = sim_utils.UsdFileCfg(
+            usd_path=f"{ISAAC_NUCLEUS_DIR}/Environments/Simple_Room/simple_room.usd",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                disable_gravity=False,
+                max_depenetration_velocity=10.0,
+                enable_gyroscopic_forces=True,
+            ),
+            articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+                enabled_self_collisions=False,
+                solver_position_iteration_count=4,
+                solver_velocity_iteration_count=0,
+                sleep_threshold=0.005,
+                stabilization_threshold=0.001,
+            ),
+            copy_from_source=False,
+        )
+        room_cfg.func("/World/Room", room_cfg, translation=(0.0, 0.0, 0.0))
 
     def _pre_physics_step(self, actions: torch.Tensor):
         self._actions = actions.clone().clamp(-1.0, 1.0)

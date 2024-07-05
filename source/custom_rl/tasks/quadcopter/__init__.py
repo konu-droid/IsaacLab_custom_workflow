@@ -4,27 +4,26 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Cartpole balancing environment.
+Quacopter environment.
 """
 
 import gymnasium as gym
 
 from . import agents
-from .cartpole_env_cfg import CartpoleEnvCfg
+from .quadcopter_env import QuadcopterEnv, QuadcopterEnvCfg
 
 ##
 # Register Gym environments.
 ##
 
 gym.register(
-    id="Isaac-Cartpole-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    id="Custom-Quadcopter-Direct-v0",
+    entry_point="tasks.quadcopter:QuadcopterEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": CartpoleEnvCfg,
+        "env_cfg_entry_point": QuadcopterEnvCfg,
         "rl_games_cfg_entry_point": f"{agents.__name__}:rl_games_ppo_cfg.yaml",
-        "rsl_rl_cfg_entry_point": agents.rsl_rl_ppo_cfg.CartpolePPORunnerCfg,
+        "rsl_rl_cfg_entry_point": agents.rsl_rl_ppo_cfg.QuadcopterPPORunnerCfg,
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
-        "sb3_cfg_entry_point": f"{agents.__name__}:sb3_ppo_cfg.yaml",
     },
 )
