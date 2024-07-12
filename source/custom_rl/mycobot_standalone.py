@@ -4,11 +4,13 @@
 import argparse
 import torch
 from time import sleep
+import numpy as np
+import cv2
 
 from omni.isaac.lab.app import AppLauncher
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="This script demonstrates how to simulate a quadcopter.")
+parser = argparse.ArgumentParser(description="This script demonstrates how to simulate a mycobot arm with camera.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -23,6 +25,9 @@ simulation_app = app_launcher.app
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.assets import Articulation
 from omni.isaac.lab.assets import RigidObject
+from omni.isaac.lab.sensors.camera import Camera, CameraCfg
+from omni.isaac.lab.sensors import TiledCamera, TiledCameraCfg, save_images_to_file
+from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.sim import SimulationContext
 from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
 
@@ -32,9 +37,6 @@ from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
 # from robots.franka import FRANKA_PANDA_CFG  # isort:skip
 from robots.mycobot import MYCOBOT_CFG  # isort:skip
 
-
-def go_circles():
-    pass
 
 
 def grasp(finger_left, finger_right):
@@ -60,7 +62,7 @@ def main():
         sim_utils.SimulationCfg(device="cpu", use_gpu_pipeline=False, dt=0.005, physx=sim_utils.PhysxCfg(use_gpu=False))
     )
     # Set main camera
-    sim.set_camera_view(eye=[1.1, 1.1, 2.5], target=[0.0, 0.0, 0.0])
+    sim.set_camera_view(eye=[1.1, 1.1, 2.0], target=[0.0, 0.0, 0.0])
 
     # Spawn things into stage
     # Ground-plane
@@ -76,6 +78,38 @@ def main():
 
     # create handles for the robots
     robot = Articulation(robot_cfg.replace(prim_path="/World/mycobot/Robot.*"))
+
+    camera_cfg = CameraCfg(
+        prim_path="/World/mycobot/CameraSensor",
+        update_period=0,
+        height=480,
+        width=640,
+        offset=CameraCfg.OffsetCfg(pos=(-2.0, 0.0, 0.3), rot=(0.9945, 0.0, 0.1045, 0.0), convention="world"),
+        data_types=["rgb"],
+        colorize_semantic_segmentation=False,
+        colorize_instance_id_segmentation=False,
+        colorize_instance_segmentation=False,
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=24.0, focus_distance=400.0, horizontal_aperture=20.955, clipping_range=(0.1, 1.0e5)
+        ),
+    )
+    # Create camera
+    camera = Camera(cfg=camera_cfg)
+
+    # camera
+    tiled_camera_cfg = TiledCameraCfg(
+        prim_path="/World/mycobot/Camera",
+        update_period=0,
+        height=480,
+        width=640,
+        offset=TiledCameraCfg.OffsetCfg(pos=(-2.0, 0.0, 0.3), rot=(0.9945, 0.0, 0.1045, 0.0), convention="world"),
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=24.0, focus_distance=400.0, horizontal_aperture=20.955, clipping_range=(0.1, 1.0e5)
+        ),
+    )
+
+    tiled_camera = TiledCamera(cfg=tiled_camera_cfg)
 
     # # Room
     # room_cfg = sim_utils.UsdFileCfg(
@@ -106,7 +140,6 @@ def main():
 
     # Define simulation stepping
     sim_dt = sim.get_physics_dt()
-    sim_time = 0.0
     count = 0
 
     print(robot.find_joints("gripper_base_inner_left_joint"))
@@ -129,10 +162,10 @@ def main():
         efforts[0][robot.find_joints("gripper_base_inner_left_joint")[0]] = left
         efforts[0][robot.find_joints("gripper_base_inner_right_joint")[0]] = right
         # efforts[0][robot.find_joints("panda_joint1")[0]] = 100.0
-        print("pose", robot.data.joint_pos[0][robot.find_joints("gripper_base_inner_right_joint")[0]])
-        print("left", left)
-        print("right", right)
-        print("efforts", efforts)
+        # print("pose", robot.data.joint_pos[0][robot.find_joints("gripper_base_inner_right_joint")[0]])
+        # print("left", left)
+        # print("right", right)
+        # print("efforts", efforts)
 
         # # -- apply action to the robot
         robot.set_joint_position_target(efforts)
@@ -140,16 +173,34 @@ def main():
         # -- write data to sim
         robot.write_data_to_sim()
 
-        print(robot.data.joint_pos)
+        # print(robot.data.joint_pos)
 
         # perform step
         sim.step()
         # sleep(0.2)
-        # update sim-time
-        sim_time += sim_dt
         count += 1
         # update buffers
         robot.update(sim_dt)
+        camera.update(dt=sim.get_physics_dt())
+        tiled_camera.update(dt=sim.get_physics_dt())
+
+        print("Received shape of camerargba image        : ", camera.data.output["rgb"].shape)
+        print("Received shape of tiledcamerargba image        : ", tiled_camera.data.output["rgb"].shape)
+        
+        # Convert RGBA to RGB
+        image = camera.data.output["rgb"]
+        rgb_image = cv2.cvtColor(image[0].numpy(), cv2.COLOR_RGBA2RGB)
+        print("Received shape of rgb image        : ", rgb_image.shape)
+
+        if count == 300:
+            tiled_image = tiled_camera.data.output["rgb"]
+            save_images_to_file(tiled_image, "/home/konu/Documents/IsaacLab_custom_workflow/source/custom_rl/mycobot_image.png")
+            
+            # Save the RGB image
+            cv2.imwrite("/home/konu/Documents/IsaacLab_custom_workflow/source/custom_rl/mycobot_image_rgb.png", rgb_image)
+            # cv2.imwrite("/home/konu/Documents/IsaacLab_custom_workflow/single_cam_data.png", single_cam_data)
+            sleep(1)
+            simulation_app.close()
 
 
 if __name__ == "__main__":
