@@ -35,6 +35,7 @@ class FrankaCabinetEnvCfg(DirectRLEnvCfg):
     # simulation
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 120,
+        render_interval=decimation,
         disable_contact_processing=True,
         physics_material=sim_utils.RigidBodyMaterialCfg(
             friction_combine_mode="multiply",
@@ -52,7 +53,7 @@ class FrankaCabinetEnvCfg(DirectRLEnvCfg):
     robot = ArticulationCfg(
         prim_path="/World/envs/env_.*/Robot",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"/home/konu/Documents/IsaacLab_custom_workflow/source/custom_rl/usd/mycobot_280m5_with_gripper_parallel.usd",
+            usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/Franka/franka_instanceable.usd",
             activate_contact_sensors=False,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
@@ -64,39 +65,35 @@ class FrankaCabinetEnvCfg(DirectRLEnvCfg):
         ),
         init_state=ArticulationCfg.InitialStateCfg(
             joint_pos={
-                "joint2_to_joint1": 1.157,
-                "joint3_to_joint2": -1.066,
-                "joint4_to_joint3": -0.155,
-                "joint5_to_joint4": -2.239,
-                "joint6_to_joint5": -1.841,
-                "joint6output_to_joint6": 1.003,
-                "gripper_controller": -0.6,
-                "gripper_base_to_gripper_left2": 0.035,
-                "gripper_base_to_gripper_right2": 0.035,
-                "gripper_base_to_gripper_right3": 0.035,
-                "gripper_right3_to_gripper_right1": 0.035,
-                "gripper_left3_to_gripper_left1": 0.035,
+                "panda_joint1": 1.157,
+                "panda_joint2": -1.066,
+                "panda_joint3": -0.155,
+                "panda_joint4": -2.239,
+                "panda_joint5": -1.841,
+                "panda_joint6": 1.003,
+                "panda_joint7": 0.469,
+                "panda_finger_joint.*": 0.035,
             },
             pos=(1.0, 0.0, 0.0),
             rot=(0.0, 0.0, 0.0, 1.0),
         ),
         actuators={
-            "shoulder": ImplicitActuatorCfg(
-                joint_names_expr=["joint2_to_joint1", "joint3_to_joint2", "joint4_to_joint3"],
+            "panda_shoulder": ImplicitActuatorCfg(
+                joint_names_expr=["panda_joint[1-4]"],
                 effort_limit=87.0,
                 velocity_limit=2.175,
                 stiffness=80.0,
                 damping=4.0,
             ),
-            "forearm": ImplicitActuatorCfg(
-                joint_names_expr=["joint5_to_joint4", "joint6_to_joint5", "joint6output_to_joint6"],
+            "panda_forearm": ImplicitActuatorCfg(
+                joint_names_expr=["panda_joint[5-7]"],
                 effort_limit=12.0,
                 velocity_limit=2.61,
                 stiffness=80.0,
                 damping=4.0,
             ),
-            "hand": ImplicitActuatorCfg(
-                joint_names_expr=["gripper_base_to_gripper_left2", "gripper_base_to_gripper_right2", "gripper_base_to_gripper_right3", "gripper_controller"],
+            "panda_hand": ImplicitActuatorCfg(
+                joint_names_expr=["panda_finger_joint.*"],
                 effort_limit=200.0,
                 velocity_limit=0.2,
                 stiffness=2e3,
@@ -205,25 +202,25 @@ class FrankaCabinetEnv(DirectRLEnv):
         self.robot_dof_upper_limits = self._robot.data.soft_joint_pos_limits[0, :, 1].to(device=self.device)
 
         self.robot_dof_speed_scales = torch.ones_like(self.robot_dof_lower_limits)
-        self.robot_dof_speed_scales[self._robot.find_joints("gripper_base_to_gripper_left2")[0]] = 0.1
-        self.robot_dof_speed_scales[self._robot.find_joints("gripper_base_to_gripper_right2")[0]] = 0.1
+        self.robot_dof_speed_scales[self._robot.find_joints("panda_finger_joint1")[0]] = 0.1
+        self.robot_dof_speed_scales[self._robot.find_joints("panda_finger_joint2")[0]] = 0.1
 
         self.robot_dof_targets = torch.zeros((self.num_envs, self._robot.num_joints), device=self.device)
 
         stage = get_current_stage()
         hand_pose = get_env_local_pose(
             self.scene.env_origins[0],
-            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/joint6")),
+            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/panda_link7")),
             self.device,
         )
         lfinger_pose = get_env_local_pose(
             self.scene.env_origins[0],
-            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/gripper_left2")),
+            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/panda_leftfinger")),
             self.device,
         )
         rfinger_pose = get_env_local_pose(
             self.scene.env_origins[0],
-            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/gripper_right2")),
+            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/panda_rightfinger")),
             self.device,
         )
 
@@ -256,9 +253,9 @@ class FrankaCabinetEnv(DirectRLEnv):
             (self.num_envs, 1)
         )
 
-        self.hand_link_idx = self._robot.find_bodies("joint6")[0][0]
-        self.left_finger_link_idx = self._robot.find_bodies("gripper_left2")[0][0]
-        self.right_finger_link_idx = self._robot.find_bodies("gripper_right2")[0][0]
+        self.hand_link_idx = self._robot.find_bodies("panda_link7")[0][0]
+        self.left_finger_link_idx = self._robot.find_bodies("panda_leftfinger")[0][0]
+        self.right_finger_link_idx = self._robot.find_bodies("panda_rightfinger")[0][0]
         self.drawer_link_idx = self._cabinet.find_bodies("drawer_top")[0][0]
 
         self.robot_grasp_rot = torch.zeros((self.num_envs, 4), device=self.device)

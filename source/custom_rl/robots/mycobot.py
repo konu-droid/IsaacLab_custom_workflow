@@ -55,21 +55,21 @@ MYCOBOT_CFG = ArticulationCfg(
         },
     ),
     actuators={
-        "panda_shoulder": ImplicitActuatorCfg(
+        "shoulder": ImplicitActuatorCfg(
             joint_names_expr=["joint[1-3]"],
             effort_limit=87.0,
             velocity_limit=2.175,
             stiffness=80.0,
             damping=4.0,
         ),
-        "panda_forearm": ImplicitActuatorCfg(
+        "forearm": ImplicitActuatorCfg(
             joint_names_expr=["joint[4-6]"],
             effort_limit=12.0,
             velocity_limit=2.61,
             stiffness=80.0,
             damping=4.0,
         ),
-        "panda_hand": ImplicitActuatorCfg(
+        "hand": ImplicitActuatorCfg(
             joint_names_expr=["gripper_base_inner_left_joint", "gripper_base_inner_right_joint"],
             effort_limit=200.0,
             velocity_limit=0.2,
