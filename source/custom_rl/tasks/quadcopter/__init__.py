@@ -17,7 +17,7 @@ from .quadcopter_env import QuadcopterEnv, QuadcopterEnvCfg
 ##
 
 gym.register(
-    id="Custom-Quadcopter-Direct-v0",
+    id="Custom-Quadcopter-Single-v0",
     entry_point="tasks.quadcopter:QuadcopterEnv",
     disable_env_checker=True,
     kwargs={

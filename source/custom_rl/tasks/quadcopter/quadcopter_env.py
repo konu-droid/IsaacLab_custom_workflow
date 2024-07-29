@@ -144,24 +144,24 @@ class QuadcopterEnv(DirectRLEnv):
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
-        # Room
-        room_cfg = sim_utils.UsdFileCfg(
-            usd_path=f"{ISAAC_NUCLEUS_DIR}/Environments/Simple_Room/simple_room.usd",
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                disable_gravity=False,
-                max_depenetration_velocity=10.0,
-                enable_gyroscopic_forces=True,
-            ),
-            articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-                enabled_self_collisions=False,
-                solver_position_iteration_count=4,
-                solver_velocity_iteration_count=0,
-                sleep_threshold=0.005,
-                stabilization_threshold=0.001,
-            ),
-            copy_from_source=False,
-        )
-        room_cfg.func("/World/Room", room_cfg, translation=(0.0, 0.0, 0.0))
+        # # Room
+        # room_cfg = sim_utils.UsdFileCfg(
+        #     usd_path=f"{ISAAC_NUCLEUS_DIR}/Environments/Simple_Room/simple_room.usd",
+        #     rigid_props=sim_utils.RigidBodyPropertiesCfg(
+        #         disable_gravity=False,
+        #         max_depenetration_velocity=10.0,
+        #         enable_gyroscopic_forces=True,
+        #     ),
+        #     articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+        #         enabled_self_collisions=False,
+        #         solver_position_iteration_count=4,
+        #         solver_velocity_iteration_count=0,
+        #         sleep_threshold=0.005,
+        #         stabilization_threshold=0.001,
+        #     ),
+        #     copy_from_source=False,
+        # )
+        # room_cfg.func("/World/Room", room_cfg, translation=(0.0, 0.0, 0.0))
 
     def _pre_physics_step(self, actions: torch.Tensor):
         self._actions = actions.clone().clamp(-1.0, 1.0)
